@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -22,6 +21,8 @@ void *philosopher(void *arg)
 
     printf("Philosopher %d is eating\n", id);
     sleep(1);
+
+    printf("Philosopher %d finished eating\n", id);
 
     sem_post(&forks[(id + 1) % N]);
     sem_post(&forks[id]);
