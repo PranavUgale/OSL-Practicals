@@ -1,15 +1,18 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <string.h>
 
 int main()
 {
     int fd1, fd2;
     char msg[100], reply[100];
+
+    unlink("fifo1");
+    unlink("fifo2");
 
     mkfifo("fifo1", 0666);
     mkfifo("fifo2", 0666);
