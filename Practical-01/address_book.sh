@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 FILE="addressbook.txt"
@@ -21,6 +20,7 @@ do
             > "$FILE"
             echo "Address Book Created."
             ;;
+
         2)
             if [ -f "$FILE" ]; then
                 cat "$FILE"
@@ -28,31 +28,57 @@ do
                 echo "Address Book does not exist."
             fi
             ;;
+
         3)
+            touch "$FILE"
             read -p "Enter Name: " name
             read -p "Enter Phone: " phone
             echo "$name $phone" >> "$FILE"
             echo "Record Inserted."
             ;;
+
         4)
-            read -p "Enter Name to Delete: " name
-            grep -v "^$name " "$FILE" > temp.txt
-            mv temp.txt "$FILE"
-            echo "Record Deleted."
+            if [ -f "$FILE" ]; then
+                read -p "Enter Name to Delete: " name
+
+                if grep -Fq "$name " "$FILE"; then
+                    grep -Fv "$name " "$FILE" > temp.txt
+                    mv temp.txt "$FILE"
+                    echo "Record Deleted."
+                else
+                    echo "Record Not Found."
+                fi
+            else
+                echo "Address Book does not exist."
+            fi
             ;;
+
         5)
-            read -p "Enter Name to Modify: " name
-            grep -v "^$name " "$FILE" > temp.txt
-            mv temp.txt "$FILE"
-            read -p "Enter New Name: " newname
-            read -p "Enter New Phone: " phone
-            echo "$newname $phone" >> "$FILE"
-            echo "Record Modified."
+            if [ -f "$FILE" ]; then
+                read -p "Enter Name to Modify: " name
+
+                if grep -Fq "$name " "$FILE"; then
+                    grep -Fv "$name " "$FILE" > temp.txt
+                    mv temp.txt "$FILE"
+
+                    read -p "Enter New Name: " newname
+                    read -p "Enter New Phone: " phone
+
+                    echo "$newname $phone" >> "$FILE"
+                    echo "Record Modified."
+                else
+                    echo "Record Not Found."
+                fi
+            else
+                echo "Address Book does not exist."
+            fi
             ;;
+
         6)
             echo "Exiting..."
             exit 0
             ;;
+
         *)
             echo "Invalid Choice."
             ;;
