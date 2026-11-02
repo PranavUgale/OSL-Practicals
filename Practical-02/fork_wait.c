@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -23,14 +22,19 @@ int main()
         printf("Child Process\n");
         printf("Child PID: %d\n", getpid());
 
+        // Sort array in ascending order
         for (i = 0; i < 5; i++)
+        {
             for (j = i + 1; j < 5; j++)
+            {
                 if (a[i] > a[j])
                 {
                     temp = a[i];
                     a[i] = a[j];
                     a[j] = temp;
                 }
+            }
+        }
 
         printf("Sorted array by Child: ");
         for (i = 0; i < 5; i++)
@@ -43,10 +47,25 @@ int main()
     {
         wait(NULL);
 
-        printf("Parent Process\n");
+        printf("\nParent Process\n");
         printf("Parent PID: %d\n", getpid());
+        printf("Child PID: %d\n", pid);
 
-        printf("Original array by Parent: ");
+        // Sort array in descending order
+        for (i = 0; i < 5; i++)
+        {
+            for (j = i + 1; j < 5; j++)
+            {
+                if (a[i] < a[j])
+                {
+                    temp = a[i];
+                    a[i] = a[j];
+                    a[j] = temp;
+                }
+            }
+        }
+
+        printf("Sorted array by Parent: ");
         for (i = 0; i < 5; i++)
             printf("%d ", a[i]);
 
