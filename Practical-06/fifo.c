@@ -1,55 +1,79 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <string.h>
+# PR6: Classification using Logistic Regression and KNN (CO2, CO3)
+# Dataset: Iris (built-in, 3-class flower classification)
 
-int main()
-{
-    int fd1, fd2;
-    char msg[100], reply[100];
+# Import required libraries
 
-    unlink("fifo1");
-    unlink("fifo2");
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 
-    mkfifo("fifo1", 0666);
-    mkfifo("fifo2", 0666);
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix
+)
 
-    if (fork() == 0)
-    {
-        fd1 = open("fifo1", O_RDONLY);
-        read(fd1, msg, sizeof(msg));
-        close(fd1);
 
-        printf("Child received: %s\n", msg);
+# 1. Load Dataset
 
-        strcpy(reply, "Hello Parent");
+data = load_iris()
 
-        fd2 = open("fifo2", O_WRONLY);
-        write(fd2, reply, strlen(reply) + 1);
-        close(fd2);
-    }
-    else
-    {
-        strcpy(msg, "Hello Child");
+X, y = data.data, data.target
 
-        fd1 = open("fifo1", O_WRONLY);
-        write(fd1, msg, strlen(msg) + 1);
-        close(fd1);
+print("Dataset shape:", X.shape, "| Classes:", data.target_names)
 
-        fd2 = open("fifo2", O_RDONLY);
-        read(fd2, reply, sizeof(reply));
-        close(fd2);
 
-        printf("Parent received: %s\n", reply);
+# 2. Preprocessing: Train-test split and feature scaling
 
-        wait(NULL);
-    }
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
 
-    unlink("fifo1");
-    unlink("fifo2");
+scaler = StandardScaler()
 
-    return 0;
-}
+X_train = scaler.fit_transform(X_train)
+
+X_test = scaler.transform(X_test)
+
+
+# 3. Train Models
+
+log_reg = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+
+knn = KNeighborsClassifier(n_neighbors=5).fit(X_train, y_train)
+
+y_pred_lr = log_reg.predict(X_test)
+
+y_pred_knn = knn.predict(X_test)
+
+
+# 4. Evaluate Models
+
+def evaluate(name, y_true, y_pred):
+
+    print(f"\n{name}")
+
+    print("Accuracy :", round(accuracy_score(y_true, y_pred), 4))
+
+    print("Precision:", round(
+        precision_score(y_true, y_pred, average='weighted'), 4
+    ))
+
+    print("Recall   :", round(
+        recall_score(y_true, y_pred, average='weighted'), 4
+    ))
+
+    print("F1-Score :", round(
+        f1_score(y_true, y_pred, average='weighted'), 4
+    ))
+
+    print("Confusion Matrix:\n", confusion_matrix(y_true, y_pred))
+
+
+evaluate("Logistic Regression", y_test, y_pred_lr)
+
+evaluate("KNN (k=5)", y_test, y_pred_knn)
