@@ -1,64 +1,71 @@
-#include <stdio.h>
-#include <stdlib.h>
+# PR8: PCA (short): PCA on Digits (64 features) - features, 2-D plot, accuracy
 
-int main()
-{
-    int n, head, size, i, j, temp;
-    int request[20], total = 0;
+# Import required libraries
 
-    printf("Enter number of requests: ");
-    scanf("%d", &n);
+import matplotlib.pyplot as plt
 
-    printf("Enter request queue: ");
-    for (i = 0; i < n; i++)
-        scanf("%d", &request[i]);
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LogisticRegression
 
-    printf("Enter initial head position: ");
-    scanf("%d", &head);
 
-    printf("Enter disk size: ");
-    scanf("%d", &size);
+# Load Dataset and Preprocessing
 
-    for (i = 0; i < n; i++)
-    {
-        for (j = i + 1; j < n; j++)
-        {
-            if (request[i] > request[j])
-            {
-                temp = request[i];
-                request[i] = request[j];
-                request[j] = temp;
-            }
-        }
-    }
+X, y = load_digits(return_X_y=True)
 
-    printf("Seek Sequence: %d ", head);
+Xtr, Xte, ytr, yte = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y
+)
 
-    for (i = 0; i < n; i++)
-    {
-        if (request[i] >= head)
-        {
-            total += abs(head - request[i]);
-            head = request[i];
-            printf("-> %d ", head);
-        }
-    }
+sc = StandardScaler().fit(Xtr)
 
-    total += abs(head - (size - 1));
-    head = size - 1;
-    printf("-> %d ", head);
+Xtr, Xte = sc.transform(Xtr), sc.transform(Xte)
 
-    for (i = n - 1; i >= 0; i--)
-    {
-        if (request[i] < head)
-        {
-            total += abs(head - request[i]);
-            head = request[i];
-            printf("-> %d ", head);
-        }
-    }
 
-    printf("\nTotal Seek Operations: %d\n", total);
+# Classification Accuracy Function
 
-    return 0;
-}
+acc = lambda a, b: LogisticRegression(max_iter=2000).fit(a, ytr).score(b, yte)
+
+
+# Without PCA
+
+print(
+    "Without PCA :", Xtr.shape[1],
+    "features, accuracy =", round(acc(Xtr, Xte), 4)
+)
+
+
+# With PCA (95% Variance)
+
+pca = PCA(n_components=0.95).fit(Xtr)
+
+print(
+    "With PCA    :", pca.n_components_,
+    "features, accuracy =",
+    round(acc(pca.transform(Xtr), pca.transform(Xte)), 4)
+)
+
+
+# 2-D PCA Projection
+
+Z = PCA(n_components=2).fit_transform(Xtr)
+
+plt.scatter(
+    Z[:, 0], Z[:, 1],
+    c=ytr,
+    cmap="tab10",
+    s=10
+)
+
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+
+plt.colorbar(label="Digit")
+
+plt.title("2-D PCA projection")
+
+plt.savefig("pr8_short_plot.png")
+
+plt.show()
