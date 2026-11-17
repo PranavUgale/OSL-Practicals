@@ -1,60 +1,100 @@
-#include <stdio.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <unistd.h>
+# PR4: Data Preprocessing and EDA (CO2) - Titanic Dataset
 
-#define N 5
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-sem_t forks[N];
-sem_t room;
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.model_selection import train_test_split
 
-void *philosopher(void *arg)
-{
-    int id = *(int *)arg;
 
-    printf("Philosopher %d is thinking\n", id);
+# 1. Load Dataset
 
-    sem_wait(&room);
+df = sns.load_dataset("titanic")
 
-    sem_wait(&forks[id]);
-    sem_wait(&forks[(id + 1) % N]);
+print(df.shape, "\n", df.head())
 
-    printf("Philosopher %d is eating\n", id);
-    sleep(1);
 
-    printf("Philosopher %d finished eating\n", id);
+# 2. Data Cleaning
 
-    sem_post(&forks[(id + 1) % N]);
-    sem_post(&forks[id]);
+df = df.drop_duplicates()
 
-    sem_post(&room);
+df = df.drop(columns=["deck", "embark_town", "alive", "class"])
 
-    return NULL;
-}
 
-int main()
-{
-    pthread_t threads[N];
-    int ids[N];
+# 3. Missing Value Handling
 
-    sem_init(&room, 0, N - 1);
+df["age"] = df["age"].fillna(df["age"].median())
 
-    for (int i = 0; i < N; i++)
-        sem_init(&forks[i], 0, 1);
+df["embarked"] = df["embarked"].fillna(df["embarked"].mode()[0])
 
-    for (int i = 0; i < N; i++)
-    {
-        ids[i] = i;
-        pthread_create(&threads[i], NULL, philosopher, &ids[i]);
-    }
+df = df.dropna()
 
-    for (int i = 0; i < N; i++)
-        pthread_join(threads[i], NULL);
 
-    for (int i = 0; i < N; i++)
-        sem_destroy(&forks[i]);
+# 4. Encoding
 
-    sem_destroy(&room);
+df["sex"] = LabelEncoder().fit_transform(df["sex"])
 
-    return 0;
-}
+df = pd.get_dummies(df, columns=["embarked", "who"], drop_first=True)
+
+df = df.astype({
+    c: int for c in df.select_dtypes("bool").columns
+})
+
+
+# 5. Statistical Analysis
+
+print(df.describe())
+
+print(df.corr(numeric_only=True)["survived"].sort_values(ascending=False))
+
+
+# 6. Visualization - Histograms
+
+df[["age", "fare", "pclass"]].hist(figsize=(10, 6), bins=20)
+
+plt.suptitle("Histograms")
+
+plt.savefig("histograms.png")
+
+plt.show()
+
+
+# 7. Visualization - Boxplots
+
+plt.figure(figsize=(8, 4))
+
+plt.subplot(1, 2, 1)
+sns.boxplot(y=df["age"])
+plt.title("Age")
+
+plt.subplot(1, 2, 2)
+sns.boxplot(y=df["fare"])
+plt.title("Fare")
+
+plt.tight_layout()
+
+plt.savefig("boxplots.png")
+
+plt.show()
+
+
+# 8. Feature Scaling
+
+num_cols = ["age", "fare", "sibsp", "parch"]
+
+df[num_cols] = StandardScaler().fit_transform(df[num_cols])
+
+
+# 9. Train-Test Split
+
+X = df.drop(columns=["survived"])
+
+y = df["survived"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+print("Train:", X_train.shape, "Test:", X_test.shape)
