@@ -1,76 +1,109 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/wait.h>
+import time
+from collections import deque
 
-int main()
-{
-    pid_t pid;
-    int a[] = {5, 2, 8, 1, 3};
-    int i, j, temp;
+# Maze: 0 = open path, 1 = wall
 
-    pid = fork();
+maze = [
+    [0, 0, 0, 1, 0],
+    [1, 0, 0, 1, 0],
+    [0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 0],
+    [0, 0, 0, 0, 0]
+]
 
-    if (pid < 0)
-    {
-        printf("Fork failed\n");
-        return 1;
-    }
+start = (0, 0)
+goal = (4, 4)
 
-    if (pid == 0)
-    {
-        printf("Child Process\n");
-        printf("Child PID: %d\n", getpid());
+rows, cols = len(maze), len(maze[0])
 
-        // Sort array in ascending order
-        for (i = 0; i < 5; i++)
-        {
-            for (j = i + 1; j < 5; j++)
-            {
-                if (a[i] > a[j])
-                {
-                    temp = a[i];
-                    a[i] = a[j];
-                    a[j] = temp;
-                }
-            }
-        }
+# Display maze
+maze
 
-        printf("Sorted array by Child: ");
-        for (i = 0; i < 5; i++)
-            printf("%d ", a[i]);
 
-        printf("\n");
-        exit(0);
-    }
-    else
-    {
-        wait(NULL);
+# Get neighboring cells
 
-        printf("\nParent Process\n");
-        printf("Parent PID: %d\n", getpid());
-        printf("Child PID: %d\n", pid);
+def get_neighbors(cell):
 
-        // Sort array in descending order
-        for (i = 0; i < 5; i++)
-        {
-            for (j = i + 1; j < 5; j++)
-            {
-                if (a[i] < a[j])
-                {
-                    temp = a[i];
-                    a[i] = a[j];
-                    a[j] = temp;
-                }
-            }
-        }
+    r, c = cell
 
-        printf("Sorted array by Parent: ");
-        for (i = 0; i < 5; i++)
-            printf("%d ", a[i]);
+    moves = [(r-1, c), (r+1, c), (r, c-1), (r, c+1)]
 
-        printf("\n");
-    }
+    return [
+        (nr, nc) for nr, nc in moves
+        if 0 <= nr < rows and 0 <= nc < cols and maze[nr][nc] == 0
+    ]
 
-    return 0;
-}
+
+# Depth First Search
+
+def dfs(start, goal):
+
+    stack = [[start]]
+    visited = {start}
+    nodes_explored = 0
+
+    while stack:
+
+        path = stack.pop()
+        node = path[-1]
+
+        nodes_explored += 1
+
+        if node == goal:
+            return path, nodes_explored
+
+        for neighbor in get_neighbors(node):
+
+            if neighbor not in visited:
+
+                visited.add(neighbor)
+                stack.append(path + [neighbor])
+
+    return None, nodes_explored
+
+
+# Breadth First Search
+
+def bfs(start, goal):
+
+    queue = deque([[start]])
+    visited = {start}
+    nodes_explored = 0
+
+    while queue:
+
+        path = queue.popleft()
+        node = path[-1]
+
+        nodes_explored += 1
+
+        if node == goal:
+            return path, nodes_explored
+
+        for neighbor in get_neighbors(node):
+
+            if neighbor not in visited:
+
+                visited.add(neighbor)
+                queue.append(path + [neighbor])
+
+    return None, nodes_explored
+
+
+# Compare performance
+
+for name, algo in [("BFS", bfs), ("DFS", dfs)]:
+
+    t0 = time.perf_counter()
+
+    path, explored = algo(start, goal)
+
+    t1 = time.perf_counter()
+
+    print(
+        f"{name}: path length={len(path)-1}, "
+        f"nodes explored={explored}, "
+        f"time={(t1-t0)*1000:.4f} ms"
+    )
+
+    print("Path:", path)
