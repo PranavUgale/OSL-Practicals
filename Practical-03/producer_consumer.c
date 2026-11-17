@@ -1,78 +1,216 @@
+class Rule:
 
-#include <stdio.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <unistd.h>
+    def __init__(self, name, premises, conclusion):
+        self.name = name
+        self.premises = set(premises)
+        self.conclusion = conclusion
 
-#define SIZE 5
+    def __str__(self):
+        return f"{self.name}: IF {' AND '.join(sorted(self.premises))} THEN {self.conclusion}"
 
-int buffer[SIZE];
-int in = 0, out = 0;
 
-sem_t empty, full;
-pthread_mutex_t mutex;
+class KnowledgeBase:
 
-void *producer(void *arg)
-{
-    int item;
+    def __init__(self):
+        self.rules = []
 
-    for (item = 1; item <= 5; item++)
-    {
-        sem_wait(&empty);
-        pthread_mutex_lock(&mutex);
+    def add_rule(self, name, premises, conclusion):
+        self.rules.append(Rule(name, premises, conclusion))
 
-        buffer[in] = item;
-        printf("Produced: %d\n", item);
-        in = (in + 1) % SIZE;
+    def show(self):
+        for r in self.rules:
+            print(r)
 
-        pthread_mutex_unlock(&mutex);
-        sem_post(&full);
+    # FORWARD CHAINING (data-driven)
 
-        sleep(1);
-    }
+    def forward_chaining(self, facts, goal=None, verbose=True):
 
-    return NULL;
-}
+        known = set(facts)
+        fired = set()
+        step = 0
+        changed = True
 
-void *consumer(void *arg)
-{
-    int item;
+        while changed:
+            changed = False
 
-    for (int i = 0; i < 5; i++)
-    {
-        sem_wait(&full);
-        pthread_mutex_lock(&mutex);
+            for r in self.rules:
 
-        item = buffer[out];
-        printf("Consumed: %d\n", item);
-        out = (out + 1) % SIZE;
+                if r.name not in fired and r.premises <= known:
 
-        pthread_mutex_unlock(&mutex);
-        sem_post(&empty);
+                    fired.add(r.name)
 
-        sleep(1);
-    }
+                    if r.conclusion not in known:
+                        known.add(r.conclusion)
+                        changed = True
+                        step += 1
 
-    return NULL;
-}
+                        if verbose:
+                            print(
+                                f"Step {step}: fired {r.name} "
+                                f"-> inferred '{r.conclusion}'"
+                            )
 
-int main()
-{
-    pthread_t p, c;
+                    if goal and r.conclusion == goal:
+                        return True, known
 
-    sem_init(&empty, 0, SIZE);
-    sem_init(&full, 0, 0);
-    pthread_mutex_init(&mutex, NULL);
+        return (goal in known if goal else None), known
 
-    pthread_create(&p, NULL, producer, NULL);
-    pthread_create(&c, NULL, consumer, NULL);
+    # BACKWARD CHAINING (goal-driven)
 
-    pthread_join(p, NULL);
-    pthread_join(c, NULL);
+    def backward_chaining(self, goal, facts, verbose=True, _depth=0, _stack=None):
 
-    sem_destroy(&empty);
-    sem_destroy(&full);
-    pthread_mutex_destroy(&mutex);
+        _stack = _stack or set()
 
-    return 0;
-}
+        pad = "  " * (_depth + 1)
+
+        if goal in facts:
+
+            if verbose:
+                print(f"{pad}'{goal}' is a known fact [OK]")
+
+            return True
+
+        if goal in _stack:
+            return False
+
+        _stack = _stack | {goal}
+
+        for r in self.rules:
+
+            if r.conclusion == goal:
+
+                if verbose:
+                    print(
+                        f"{pad}Goal '{goal}': trying {r.name} "
+                        f"(needs {sorted(r.premises)})"
+                    )
+
+                if all(
+                    self.backward_chaining(
+                        p, facts, verbose, _depth + 1, _stack
+                    )
+                    for p in sorted(r.premises)
+                ):
+
+                    if verbose:
+                        print(f"{pad}'{goal}' PROVED via {r.name} [OK]")
+
+                    return True
+
+        if verbose:
+            print(f"{pad}'{goal}' cannot be proved [FAIL]")
+
+        return False
+
+
+# Build Knowledge Base
+
+def build_kb():
+
+    kb = KnowledgeBase()
+
+    kb.add_rule("R1", ["fever", "cough"], "respiratory_infection")
+
+    kb.add_rule("R2", ["fever", "body_ache", "fatigue"], "flu_like_illness")
+
+    kb.add_rule("R3", ["respiratory_infection", "flu_like_illness"], "flu")
+
+    kb.add_rule("R4", ["cough", "sneezing", "runny_nose"], "common_cold")
+
+    kb.add_rule("R5", ["flu"], "needs_rest_and_fluids")
+
+    kb.add_rule("R6", ["flu", "breathing_difficulty"], "consult_doctor_urgently")
+
+    kb.add_rule("R7", ["common_cold"], "needs_rest_and_fluids")
+
+    return kb
+
+
+# Main Program
+
+def main():
+
+    kb = build_kb()
+
+    print("=" * 60)
+    print("RULE-BASED EXPERT SYSTEM (Propositional Logic)")
+    print("=" * 60)
+
+    print("\nKnowledge Base:")
+    kb.show()
+
+    facts = {"fever", "cough", "body_ache", "fatigue"}
+
+    print("\nInitial facts:", sorted(facts))
+
+    # Forward Chaining - All Conclusions
+
+    print("\n--- FORWARD CHAINING (all conclusions) ---")
+
+    _, derived = kb.forward_chaining(facts)
+
+    print("Derived facts:", sorted(derived - facts))
+
+    # Forward Chaining - Goal
+
+    goal = "flu"
+
+    print(f"\n--- FORWARD CHAINING (goal = '{goal}') ---")
+
+    ok, _ = kb.forward_chaining(facts, goal)
+
+    print(f"Result: '{goal}' is {'TRUE' if ok else 'NOT derivable'}")
+
+    # Backward Chaining - Goal
+
+    print(f"\n--- BACKWARD CHAINING (goal = '{goal}') ---")
+
+    print(
+        "Result:",
+        "PROVED" if kb.backward_chaining(goal, facts) else "NOT PROVED"
+    )
+
+    # Backward Chaining - Another Goal
+
+    goal2 = "consult_doctor_urgently"
+
+    print(f"\n--- BACKWARD CHAINING (goal = '{goal2}') ---")
+
+    print(
+        "Result:",
+        "PROVED" if kb.backward_chaining(goal2, facts) else "NOT PROVED"
+    )
+
+    # Interactive Consultation
+
+    print("\n--- INTERACTIVE CONSULTATION ---")
+
+    symptoms = [
+        "fever",
+        "cough",
+        "body_ache",
+        "fatigue",
+        "sneezing",
+        "runny_nose",
+        "breathing_difficulty"
+    ]
+
+    user_facts = set()
+
+    for s in symptoms:
+
+        if input(f"Do you have {s.replace('_', ' ')}? (y/n): ").strip().lower() == "y":
+            user_facts.add(s)
+
+    _, result = kb.forward_chaining(user_facts, verbose=False)
+
+    advice = sorted(result - user_facts)
+
+    print(
+        "\nDiagnosis / advice:",
+        ", ".join(advice) if advice else "No conclusion reached"
+    )
+
+
+if __name__ == "__main__":
+    main()
