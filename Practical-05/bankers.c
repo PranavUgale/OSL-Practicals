@@ -1,86 +1,148 @@
-#include <stdio.h>
+# PR5: Regression Techniques (CO2, CO3)
+# Linear Regression and Polynomial Regression on California Housing Dataset
 
-int main()
-{
-    int n, m;
+# Step 1: Import Required Libraries
 
-    printf("Enter number of processes: ");
-    scanf("%d", &n);
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
-    printf("Enter number of resources: ");
-    scanf("%d", &m);
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-    int alloc[10][10], max[10][10], avail[10];
-    int need[10][10], finish[10] = {0}, safe[10];
 
-    printf("Enter Allocation Matrix:\n");
-    for(int i = 0; i < n; i++)
+# Step 2: Load the Dataset
+
+housing = fetch_california_housing(as_frame=True)
+df = housing.frame
+
+print("Dataset shape:", df.shape)
+print(df.head())
+
+
+# Step 3: Select Features and Target
+
+X = df[["MedInc"]]
+y = df["MedHouseVal"]
+
+
+# Step 4: Train-Test Split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+
+# Step 5: Linear Regression
+
+lin_model = LinearRegression()
+
+lin_model.fit(X_train, y_train)
+
+y_pred_lin = lin_model.predict(X_test)
+
+
+# Step 6: Polynomial Regression (Degree 3)
+
+poly_model = make_pipeline(
+    PolynomialFeatures(degree=3),
+    StandardScaler(),
+    LinearRegression()
+)
+
+poly_model.fit(X_train, y_train)
+
+y_pred_poly = poly_model.predict(X_test)
+
+
+# Step 7: Evaluation Function
+
+def evaluate(y_true, y_pred, name):
+
+    mse = mean_squared_error(y_true, y_pred)
+    mae = mean_absolute_error(y_true, y_pred)
+    r2 = r2_score(y_true, y_pred)
+
+    print(f"\n{name} Performance:")
+    print(f"  MSE : {mse:.4f}")
+    print(f"  MAE : {mae:.4f}")
+    print(f"  R2  : {r2:.4f}")
+
+    return mse, mae, r2
+
+
+# Step 8: Evaluate Both Models
+
+lin_scores = evaluate(y_test, y_pred_lin, "Linear Regression")
+
+poly_scores = evaluate(y_test, y_pred_poly, "Polynomial Regression (deg=3)")
+
+
+# Step 9: Comparison Table
+
+comparison = pd.DataFrame(
     {
-        for(int j = 0; j < m; j++)
-            scanf("%d", &alloc[i][j]);
+        "Model": ["Linear Regression", "Polynomial Regression"],
+        "MSE": [lin_scores[0], poly_scores[0]],
+        "MAE": [lin_scores[1], poly_scores[1]],
+        "R2 Score": [lin_scores[2], poly_scores[2]]
     }
+)
 
-    printf("Enter Maximum Matrix:\n");
-    for(int i = 0; i < n; i++)
-    {
-        for(int j = 0; j < m; j++)
-            scanf("%d", &max[i][j]);
-    }
+print("\nComparison Table:\n", comparison)
 
-    printf("Enter Available Resources:\n");
-    for(int j = 0; j < m; j++)
-        scanf("%d", &avail[j]);
 
-    for(int i = 0; i < n; i++)
-    {
-        for(int j = 0; j < m; j++)
-            need[i][j] = max[i][j] - alloc[i][j];
-    }
+# Step 10: Visualization
 
-    int count = 0;
+X_range = pd.DataFrame({
+    "MedInc": np.linspace(
+        X["MedInc"].min(),
+        X["MedInc"].max(),
+        300
+    )
+})
 
-    while(count < n)
-    {
-        int found = 0;
+y_range_lin = lin_model.predict(X_range)
 
-        for(int i = 0; i < n; i++)
-        {
-            if(finish[i] == 0)
-            {
-                int j;
+y_range_poly = poly_model.predict(X_range)
 
-                for(j = 0; j < m; j++)
-                {
-                    if(need[i][j] > avail[j])
-                        break;
-                }
 
-                if(j == m)
-                {
-                    for(int k = 0; k < m; k++)
-                        avail[k] += alloc[i][k];
+plt.figure(figsize=(8, 5))
 
-                    safe[count++] = i;
-                    finish[i] = 1;
-                    found = 1;
-                }
-            }
-        }
+plt.scatter(
+    X_test["MedInc"],
+    y_test,
+    s=8,
+    alpha=0.3,
+    label="Actual data"
+)
 
-        if(found == 0)
-        {
-            printf("System is not in Safe State\n");
-            return 0;
-        }
-    }
+plt.plot(
+    X_range["MedInc"],
+    y_range_lin,
+    color="red",
+    label="Linear fit"
+)
 
-    printf("System is in Safe State\n");
-    printf("Safe Sequence: ");
+plt.plot(
+    X_range["MedInc"],
+    y_range_poly,
+    color="green",
+    label="Polynomial fit (deg=3)"
+)
 
-    for(int i = 0; i < n; i++)
-        printf("P%d ", safe[i]);
+plt.xlabel("Median Income")
+plt.ylabel("Median House Value")
 
-    printf("\n");
+plt.title("Linear vs Polynomial Regression - California Housing")
 
-    return 0;
-}
+plt.legend()
+plt.tight_layout()
+
+plt.savefig("regression_comparison.png", dpi=150)
+
+plt.show()
